@@ -153,7 +153,7 @@ TypeId CoDelQueue::GetTypeId (void)
     .AddConstructor<CoDelQueue> ()
     .AddAttribute ("Mode", 
                    "Whether to use Bytes (see MaxBytes) or Packets (see MaxPackets) as the maximum queue size metric.",
-                   EnumValue (PACKETS),
+                   EnumValue (BYTES),
                    MakeEnumAccessor (&CoDelQueue::SetMode),
                    MakeEnumChecker (BYTES, "Bytes",
                                     PACKETS, "Packets"))
@@ -418,11 +418,10 @@ CoDelQueue::DoDequeue (void)
          * assume that the drop rate that controlled the queue on the
          * last cycle is a good starting point to control it now.
          */
-        if (codel_time_after(now - m_drop_next, TIME2CODEL(m_Interval))) 
+        int delta = m_count - m_lastcount;
+        if (delta > 1 && codel_time_after(now - m_drop_next, TIME2CODEL(m_Interval))) 
           {
-            //uint32_t c = m_count - 2;
-            //m_count = std::max(1U, c);
-            m_count = m_count>2U? (uint32_t)m_count-2U:1U;
+            m_count = delta;
             NewtonStep();
           } 
         else
@@ -430,6 +429,7 @@ CoDelQueue::DoDequeue (void)
             m_count = 1;
             m_rec_inv_sqrt = ~0U >> REC_INV_SQRT_SHIFT;
           }
+        m_lastcount = m_count;
         m_drop_next = ControlLaw(now);
         p = NULL;
       }
